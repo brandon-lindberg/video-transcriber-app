@@ -4,14 +4,20 @@ const selectFileBtn = document.getElementById('selectFileBtn');
 const selectedFileSpan = document.getElementById('selectedFile');
 const startBtn = document.getElementById('startBtn');
 const languageOptionsDiv = document.getElementById('languageOptions');
-const downloadLinksDiv = document.getElementById('downloadLinks');
 const apiKeyInput = document.getElementById('apiKeyInput');
-const modelSelect = document.getElementById('modelSelect');
 const toggleApiKeyVisibility = document.getElementById('toggleApiKeyVisibility');
 const eyeIcon = document.getElementById('eyeIcon');
+const timerDisplay = document.getElementById('timerDisplay');
+const progressBarFill = document.getElementById('progressBarFill');
+const statusMessage = document.getElementById('statusMessage');
 
 let selectedVideoPath = null;
 let apiKeyVisible = false;
+let timerInterval = null;
+let startTime = null;
+
+const totalMilestones = 4; // Number of milestones
+let milestonesCompleted = 0;
 
 // List of available languages
 const languages = [
@@ -66,59 +72,6 @@ toggleApiKeyVisibility.addEventListener('click', () => {
         -1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`; // Eye icon
 });
 
-// Handle API key input blur event
-apiKeyInput.addEventListener('blur', async () => {
-  const apiKey = apiKeyInput.value.trim();
-
-  if (apiKey) {
-    try {
-      // Fetch available models
-      const models = await window.electronAPI.fetchModels(apiKey);
-
-      // Check if models are returned
-      if (models && models.length > 0) {
-        // Update the model dropdown
-        updateModelDropdown(models);
-      } else {
-        alert('No models available with this API key.');
-        modelSelect.innerHTML = '';
-      }
-    } catch (error) {
-      alert('Error fetching models. Please check your API key.');
-      console.error(error);
-      modelSelect.innerHTML = '';
-    }
-  } else {
-    // Clear the model dropdown if API key is removed
-    modelSelect.innerHTML = '';
-  }
-});
-
-// Function to update the model dropdown
-function updateModelDropdown(models) {
-  // Clear existing options
-  modelSelect.innerHTML = '';
-
-  // Filter models to include only relevant ones (e.g., models starting with 'gpt-')
-  const relevantModels = models.filter((model) => model.id.startsWith('gpt-'));
-
-  if (relevantModels.length === 0) {
-    alert('No GPT models available with this API key.');
-    return;
-  }
-
-  // Sort models alphabetically
-  relevantModels.sort((a, b) => a.id.localeCompare(b.id));
-
-  // Populate the dropdown
-  relevantModels.forEach((model) => {
-    const option = document.createElement('option');
-    option.value = model.id;
-    option.textContent = model.id;
-    modelSelect.appendChild(option);
-  });
-}
-
 // Handle start processing
 startBtn.addEventListener('click', async () => {
   if (!selectedVideoPath) {
@@ -136,17 +89,12 @@ startBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Get the API key and selected model
+  // Get the API key and set the model to 'gpt-4o'
   const apiKey = apiKeyInput.value.trim();
-  const model = modelSelect.value;
+  const model = 'gpt-4o'; // Fixed to 'gpt-4o'
 
   if (!apiKey) {
     alert('Please enter your OpenAI API key.');
-    return;
-  }
-
-  if (!model) {
-    alert('Please select a model.');
     return;
   }
 
@@ -161,8 +109,21 @@ startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
   startBtn.textContent = 'Processing...';
 
+  // Reset timer and progress
+  timerDisplay.textContent = '00:00:00';
+  progressBarFill.style.width = '0%';
+  statusMessage.textContent = '';
+  milestonesCompleted = 0;
+  startTime = Date.now();
+
+  // Start timer interval
+  timerInterval = setInterval(() => {
+    const elapsedTime = Date.now() - startTime;
+    timerDisplay.textContent = formatTime(elapsedTime);
+  }, 1000);
+
   try {
-    await window.electronAPI.startProcessing(
+    const processingResult = await window.electronAPI.startProcessing(
       selectedVideoPath,
       selectedLanguages,
       apiKey,
@@ -189,16 +150,60 @@ startBtn.addEventListener('click', async () => {
       -1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
     />`;
 
-    // Clear the model dropdown
-    modelSelect.innerHTML = '';
+    // Stop timer
+    clearInterval(timerInterval);
 
-    // Notify the user that files have been saved
-    alert(`Processing completed. SRT files have been saved to: ${saveDirectory}`);
+    // Display total tokens used
+    const { tokensUsed, inputTokens, outputTokens, apiCalls } = processingResult;
+
+    // Validate that all properties are defined
+    if (
+      tokensUsed !== undefined &&
+      inputTokens !== undefined &&
+      outputTokens !== undefined &&
+      apiCalls !== undefined
+    ) {
+      alert(
+        `Processing completed in ${timerDisplay.textContent}.\nTotal API calls: ${apiCalls}\nTotal input tokens: ${inputTokens}\nTotal output tokens: ${outputTokens}\nTotal tokens used: ${tokensUsed}`
+      );
+    } else {
+      alert('Processing completed, but some token counts are undefined. Please check the console for details.');
+      console.error('Incomplete processingResult:', processingResult);
+    }
   } catch (error) {
     alert('An error occurred during processing. Please check the console for details.');
     console.error(error);
+    clearInterval(timerInterval);
   } finally {
     startBtn.disabled = false;
     startBtn.textContent = 'Start Processing';
   }
 });
+
+// Function to format time in HH:MM:SS
+function formatTime(milliseconds) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, '0');
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+// Function to update progress bar and status message
+function updateProgress(milestoneMessage) {
+  milestonesCompleted += 1;
+  const progressPercentage = (milestonesCompleted / totalMilestones) * 100;
+  progressBarFill.style.width = `${progressPercentage}%`;
+  statusMessage.textContent = milestoneMessage;
+}
+
+// Listen for progress updates from the main process
+window.electronAPI.onProgressUpdate((event, message) => {
+  updateProgress(message);
+});
+
+

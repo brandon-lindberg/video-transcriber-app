@@ -65,29 +65,27 @@ ipcMain.handle('dialog:selectDirectory', async () => {
   }
 });
 
-ipcMain.handle('process:video', async (event, videoPath, languages, apiKey, model, saveDirectory) => {
-  try {
-    await processVideo(videoPath, languages, apiKey, model, saveDirectory);
-    return 'Processing completed';
-  } catch (error) {
-    console.error('Error during processing:', error);
-    throw error;
+ipcMain.handle(
+  'process:video',
+  async (event, videoPath, languages, apiKey, model, saveDirectory) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow();
+      const processingResult = await processVideo(
+        videoPath,
+        languages,
+        apiKey,
+        model,
+        saveDirectory,
+        (message) => {
+          win.webContents.send('progress-update', message);
+        }
+      );
+      console.log('Processing Result:', processingResult);
+      return processingResult;
+    } catch (error) {
+      console.error('Error during processing:', error);
+      throw error;
+    }
   }
-});
-
-ipcMain.handle('openai:fetchModels', async (event, apiKey) => {
-  try {
-    const response = await axios.get('https://api.openai.com/v1/models', {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-
-    // Return the list of models
-    return response.data.data; // `data` contains an array of models
-  } catch (error) {
-    console.error('Error fetching models:', error.response ? error.response.data : error.message);
-    throw error; // Rethrow the error to be caught in the renderer process
-  }
-});
+);
 

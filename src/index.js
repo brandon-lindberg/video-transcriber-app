@@ -6,7 +6,14 @@ const path = require('path');
 const { transcribeAudio } = require('./transcribe');
 const { translateSubtitles } = require('./translate');
 
-async function processVideo(videoPath, targetLanguages, apiKey, model, saveDirectory) {
+async function processVideo(
+  videoPath,
+  targetLanguages,
+  apiKey,
+  model,
+  saveDirectory,
+  progressCallback
+) {
   return new Promise((resolve, reject) => {
     try {
       // Check if the file exists
@@ -14,7 +21,7 @@ async function processVideo(videoPath, targetLanguages, apiKey, model, saveDirec
         return reject('Video file not found at the specified path.');
       }
 
-      // Use FFmpeg to process the local video file
+      // Use FFmpeg to extract audio from the video file
       ffmpeg(videoPath)
         .format('mp3') // Convert to MP3 audio format
         .on('start', function (commandLine) {
@@ -35,39 +42,73 @@ async function processVideo(videoPath, targetLanguages, apiKey, model, saveDirec
         })
         .on('end', async function () {
           console.log('Audio extraction finished!');
-          // Call the transcription function here
-          try {
-            const transcriptionData = await transcribeAudio('output_audio.mp3', apiKey);
-            if (transcriptionData) {
-              // Proceed with generating SRT files
-              generateSRT(transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
+          progressCallback('Audio extraction completed.');
 
-              // Translate subtitles into multiple languages
+          try {
+            // Transcribe the extracted audio
+            const transcriptionResult = await transcribeAudio('output_audio.mp3', apiKey);
+
+            if (transcriptionResult && transcriptionResult.transcriptionData) {
+              progressCallback('Transcription successful.');
+
+              // Generate the original SRT file from the transcription data
+              generateSRT(transcriptionResult.transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
+              progressCallback('SRT file generated.');
+
+              // Initialize token and API call counters
+              let totalTokens = transcriptionResult.tokensUsed;
+              let totalInputTokens = transcriptionResult.inputTokens;
+              let totalOutputTokens = transcriptionResult.outputTokens;
+              let totalAPICalls = transcriptionResult.apiCalls;
+
+              // Translate the subtitles into the selected target languages
               for (const lang of targetLanguages) {
-                await translateSubtitles(
+                progressCallback(`Translating subtitles to ${lang.toUpperCase()}...`);
+
+                const translationResult = await translateSubtitles(
                   path.join(saveDirectory, 'subtitles.srt'),
                   lang,
                   apiKey,
                   model,
                   saveDirectory
                 );
+
+                if (translationResult) {
+                  // Accumulate tokens and API calls
+                  totalTokens += translationResult.tokensUsed;
+                  totalInputTokens += translationResult.inputTokens;
+                  totalOutputTokens += translationResult.outputTokens;
+                  totalAPICalls += translationResult.apiCalls;
+
+                  progressCallback(`SRT file generated for ${lang.toUpperCase()}.`);
+                } else {
+                  progressCallback(`Failed to translate to ${lang.toUpperCase()}.`);
+                  console.warn(`Translation result for ${lang} is undefined.`);
+                }
               }
 
-              // Clean up temporary files
+              // Clean up temporary audio file
               fs.unlinkSync('output_audio.mp3');
-              fs.unlinkSync(path.join(saveDirectory, 'subtitles.srt'));
-              console.log('Temporary files deleted.');
+              console.log('Temporary audio file deleted.');
 
-              resolve();
+              // Resolve with the accumulated token and API call data
+              resolve({
+                tokensUsed: totalTokens,
+                inputTokens: totalInputTokens,
+                outputTokens: totalOutputTokens,
+                apiCalls: totalAPICalls,
+              });
             } else {
               reject('Transcription failed.');
             }
           } catch (error) {
+            console.error('Error during transcription or translation:', error);
             reject(error);
           }
         })
-        .save('output_audio.mp3'); // Save the output audio file
+        .save('output_audio.mp3'); // Save the extracted audio to a file
     } catch (error) {
+      console.error('Error in processVideo:', error);
       reject(error);
     }
   });
@@ -112,3 +153,4 @@ function secondsToSRTTime(totalSeconds) {
 }
 
 module.exports = { processVideo };
+
