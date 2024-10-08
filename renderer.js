@@ -4,14 +4,21 @@ const selectFileBtn = document.getElementById('selectFileBtn');
 const selectedFileSpan = document.getElementById('selectedFile');
 const startBtn = document.getElementById('startBtn');
 const languageOptionsDiv = document.getElementById('languageOptions');
-const downloadLinksDiv = document.getElementById('downloadLinks');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const modelSelect = document.getElementById('modelSelect');
 const toggleApiKeyVisibility = document.getElementById('toggleApiKeyVisibility');
 const eyeIcon = document.getElementById('eyeIcon');
+const timerDisplay = document.getElementById('timerDisplay');
+const progressBarFill = document.getElementById('progressBarFill');
+const statusMessage = document.getElementById('statusMessage');
 
 let selectedVideoPath = null;
 let apiKeyVisible = false;
+let timerInterval = null;
+let startTime = null;
+
+const totalMilestones = 4; // Number of milestones
+let milestonesCompleted = 0;
 
 // List of available languages
 const languages = [
@@ -161,8 +168,21 @@ startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
   startBtn.textContent = 'Processing...';
 
+  // Reset timer and progress
+  timerDisplay.textContent = '00:00:00';
+  progressBarFill.style.width = '0%';
+  statusMessage.textContent = '';
+  milestonesCompleted = 0;
+  startTime = Date.now();
+
+  // Start timer interval
+  timerInterval = setInterval(() => {
+    const elapsedTime = Date.now() - startTime;
+    timerDisplay.textContent = formatTime(elapsedTime);
+  }, 1000);
+
   try {
-    await window.electronAPI.startProcessing(
+    const processingResult = await window.electronAPI.startProcessing(
       selectedVideoPath,
       selectedLanguages,
       apiKey,
@@ -192,13 +212,47 @@ startBtn.addEventListener('click', async () => {
     // Clear the model dropdown
     modelSelect.innerHTML = '';
 
-    // Notify the user that files have been saved
-    alert(`Processing completed. SRT files have been saved to: ${saveDirectory}`);
+    // Stop timer
+    clearInterval(timerInterval);
+
+    // Display total tokens used
+    const { totalTokens, totalInputTokens, totalOutputTokens, totalAPICalls } = processingResult;
+
+    alert(
+      `Processing completed in ${timerDisplay.textContent}.\nTotal API calls: ${totalAPICalls}\nTotal input tokens: ${totalInputTokens}\nTotal output tokens: ${totalOutputTokens}\nTotal tokens used: ${totalTokens}`
+    );
   } catch (error) {
     alert('An error occurred during processing. Please check the console for details.');
     console.error(error);
+    clearInterval(timerInterval);
   } finally {
     startBtn.disabled = false;
     startBtn.textContent = 'Start Processing';
   }
+});
+
+// Function to format time in HH:MM:SS
+function formatTime(milliseconds) {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const hours = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, '0');
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+// Function to update progress bar and status message
+function updateProgress(milestoneMessage) {
+  milestonesCompleted += 1;
+  const progressPercentage = (milestonesCompleted / totalMilestones) * 100;
+  progressBarFill.style.width = `${progressPercentage}%`;
+  statusMessage.textContent = milestoneMessage;
+}
+
+// Listen for progress updates from the main process
+window.electronAPI.onProgressUpdate((event, message) => {
+  updateProgress(message);
 });

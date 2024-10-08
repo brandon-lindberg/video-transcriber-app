@@ -8,5 +8,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startProcessing: (videoPath, languages, apiKey, model, saveDirectory) =>
     ipcRenderer.invoke('process:video', videoPath, languages, apiKey, model, saveDirectory),
   fetchModels: (apiKey) => ipcRenderer.invoke('openai:fetchModels', apiKey),
+  onProgressUpdate: (callback) => ipcRenderer.on('progress-update', callback),
 });
-

@@ -6,7 +6,14 @@ const path = require('path');
 const { transcribeAudio } = require('./transcribe');
 const { translateSubtitles } = require('./translate');
 
-async function processVideo(videoPath, targetLanguages, apiKey, model, saveDirectory) {
+async function processVideo(
+  videoPath,
+  targetLanguages,
+  apiKey,
+  model,
+  saveDirectory,
+  progressCallback
+) {
   return new Promise((resolve, reject) => {
     try {
       // Check if the file exists
@@ -35,30 +42,64 @@ async function processVideo(videoPath, targetLanguages, apiKey, model, saveDirec
         })
         .on('end', async function () {
           console.log('Audio extraction finished!');
+          progressCallback('Audio extraction completed.');
+
           // Call the transcription function here
           try {
-            const transcriptionData = await transcribeAudio('output_audio.mp3', apiKey);
+            const {
+              transcriptionData,
+              tokensUsed: transcriptionTokens,
+              inputTokens: transcriptionInputTokens,
+              outputTokens: transcriptionOutputTokens,
+              apiCalls: transcriptionAPICalls,
+            } = await transcribeAudio('output_audio.mp3', apiKey);
+
             if (transcriptionData) {
+              progressCallback('Transcription successful.');
+
               // Proceed with generating SRT files
               generateSRT(transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
+              progressCallback('SRT file generated.');
+
+              let totalTokens = transcriptionTokens;
+              let totalInputTokens = transcriptionInputTokens;
+              let totalOutputTokens = transcriptionOutputTokens;
+              let totalAPICalls = transcriptionAPICalls;
 
               // Translate subtitles into multiple languages
               for (const lang of targetLanguages) {
-                await translateSubtitles(
+                const {
+                  tokensUsed: translationTokens,
+                  inputTokens: translationInputTokens,
+                  outputTokens: translationOutputTokens,
+                  apiCalls: translationAPICalls,
+                } = await translateSubtitles(
                   path.join(saveDirectory, 'subtitles.srt'),
                   lang,
                   apiKey,
                   model,
                   saveDirectory
                 );
+                totalTokens += translationTokens;
+                totalInputTokens += translationInputTokens;
+                totalOutputTokens += translationOutputTokens;
+                totalAPICalls += translationAPICalls;
+
+                progressCallback(`SRT file generated for ${lang}.`);
               }
 
               // Clean up temporary files
               fs.unlinkSync('output_audio.mp3');
-              fs.unlinkSync(path.join(saveDirectory, 'subtitles.srt'));
+              // Do not delete the original SRT file
+              // fs.unlinkSync(path.join(saveDirectory, 'subtitles.srt'));
               console.log('Temporary files deleted.');
 
-              resolve();
+              resolve({
+                totalTokens,
+                totalInputTokens,
+                totalOutputTokens,
+                totalAPICalls,
+              });
             } else {
               reject('Transcription failed.');
             }

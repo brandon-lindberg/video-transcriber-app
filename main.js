@@ -65,15 +65,28 @@ ipcMain.handle('dialog:selectDirectory', async () => {
   }
 });
 
-ipcMain.handle('process:video', async (event, videoPath, languages, apiKey, model, saveDirectory) => {
-  try {
-    await processVideo(videoPath, languages, apiKey, model, saveDirectory);
-    return 'Processing completed';
-  } catch (error) {
-    console.error('Error during processing:', error);
-    throw error;
+ipcMain.handle(
+  'process:video',
+  async (event, videoPath, languages, apiKey, model, saveDirectory) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow();
+      const processingResult = await processVideo(
+        videoPath,
+        languages,
+        apiKey,
+        model,
+        saveDirectory,
+        (message) => {
+          win.webContents.send('progress-update', message);
+        }
+      );
+      return processingResult;
+    } catch (error) {
+      console.error('Error during processing:', error);
+      throw error;
+    }
   }
-});
+);
 
 ipcMain.handle('openai:fetchModels', async (event, apiKey) => {
   try {
@@ -90,4 +103,3 @@ ipcMain.handle('openai:fetchModels', async (event, apiKey) => {
     throw error; // Rethrow the error to be caught in the renderer process
   }
 });
-

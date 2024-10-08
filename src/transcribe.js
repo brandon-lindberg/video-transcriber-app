@@ -28,7 +28,20 @@ async function transcribeAudio(filePath, apiKey) {
     // Save the transcription data to a JSON file
     fs.writeFileSync('transcription.json', JSON.stringify(transcriptionData, null, 2));
 
-    return transcriptionData;
+    // Get tokens used
+    const usage = response.data.usage || {};
+    const tokensUsed = usage.total_tokens || 0;
+    const inputTokens = usage.prompt_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    const apiCalls = 1;
+
+    return {
+      transcriptionData,
+      tokensUsed,
+      inputTokens,
+      outputTokens,
+      apiCalls,
+    };
   } catch (error) {
     console.error('Error during transcription:', error.response ? error.response.data : error.message);
     return null;
