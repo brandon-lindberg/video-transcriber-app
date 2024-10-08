@@ -1,0 +1,97 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Video Transcriber</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Video Transcriber</h1>
+
+    <!-- File Selection -->
+    <div class="mb-4">
+      <button id="selectFileBtn" class="bg-blue-500 text-white px-4 py-2 rounded">Select Video File</button>
+      <span id="selectedFile" class="ml-2"></span>
+    </div>
+
+    <!-- API Key Input -->
+    <div class="mb-4">
+      <label class="block font-medium mb-2">OpenAI API Key:</label>
+      <div class="relative">
+        <input
+          id="apiKeyInput"
+          type="password"
+          class="w-full p-2 border rounded pr-10"
+          placeholder="Enter your OpenAI API Key"
+          autocomplete="off"
+        />
+        <button
+          id="toggleApiKeyVisibility"
+          class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-600"
+          type="button"
+          tabindex="-1"
+        >
+          <svg
+            id="eyeIcon"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <!-- Eye icon SVG path -->
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7
+              -1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+            />
+          </svg>
+        </button>
+      </div>
+      <p class="text-sm text-gray-600">
+        Don't have an API key?
+        <a href="https://platform.openai.com/signup/" target="_blank" class="text-blue-500 underline">Sign up here</a>.
+      </p>
+    </div>
+
+    <!-- Model Selection -->
+    <div class="mb-4">
+      <label class="block font-medium mb-2">Select Model:</label>
+      <select id="modelSelect" class="w-full p-2 border rounded">
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        <option value="gpt-4">GPT-4</option>
+        <!-- Add more models as needed -->
+      </select>
+    </div>
+
+    <!-- Language Selection -->
+    <div class="mb-4">
+      <label class="block font-medium mb-2">Select Languages for SRT Files:</label>
+      <div id="languageOptions" class="flex flex-wrap">
+        <!-- Languages will be populated here -->
+      </div>
+    </div>
+
+    <!-- Start Processing -->
+    <button id="startBtn" class="bg-green-500 text-white px-4 py-2 rounded">Start Processing</button>
+
+    <!-- Download Links -->
+    <div id="downloadLinks" class="mt-4">
+      <!-- Download links will appear here -->
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
