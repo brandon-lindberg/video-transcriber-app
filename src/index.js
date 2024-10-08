@@ -21,7 +21,7 @@ async function processVideo(
         return reject('Video file not found at the specified path.');
       }
 
-      // Use FFmpeg to process the local video file
+      // Use FFmpeg to extract audio from the video file
       ffmpeg(videoPath)
         .format('mp3') // Convert to MP3 audio format
         .on('start', function (commandLine) {
@@ -44,8 +44,8 @@ async function processVideo(
           console.log('Audio extraction finished!');
           progressCallback('Audio extraction completed.');
 
-          // Call the transcription function here
           try {
+            // Transcribe the extracted audio
             const {
               transcriptionData,
               tokensUsed: transcriptionTokens,
@@ -57,16 +57,17 @@ async function processVideo(
             if (transcriptionData) {
               progressCallback('Transcription successful.');
 
-              // Proceed with generating SRT files
+              // Generate the original SRT file from the transcription data
               generateSRT(transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
               progressCallback('SRT file generated.');
 
+              // Initialize token and API call counters
               let totalTokens = transcriptionTokens;
               let totalInputTokens = transcriptionInputTokens;
               let totalOutputTokens = transcriptionOutputTokens;
               let totalAPICalls = transcriptionAPICalls;
 
-              // Translate subtitles into multiple languages
+              // Translate the subtitles into the selected target languages
               for (const lang of targetLanguages) {
                 const {
                   tokensUsed: translationTokens,
@@ -80,6 +81,8 @@ async function processVideo(
                   model,
                   saveDirectory
                 );
+
+                // Accumulate tokens and API calls
                 totalTokens += translationTokens;
                 totalInputTokens += translationInputTokens;
                 totalOutputTokens += translationOutputTokens;
@@ -88,12 +91,14 @@ async function processVideo(
                 progressCallback(`SRT file generated for ${lang}.`);
               }
 
-              // Clean up temporary files
+              // Clean up temporary audio file
               fs.unlinkSync('output_audio.mp3');
-              // Do not delete the original SRT file
+              // Do not delete the original SRT file as per user request
               // fs.unlinkSync(path.join(saveDirectory, 'subtitles.srt'));
+
               console.log('Temporary files deleted.');
 
+              // Resolve with the accumulated token and API call data
               resolve({
                 totalTokens,
                 totalInputTokens,
@@ -104,11 +109,13 @@ async function processVideo(
               reject('Transcription failed.');
             }
           } catch (error) {
+            console.error('Error during transcription or translation:', error);
             reject(error);
           }
         })
-        .save('output_audio.mp3'); // Save the output audio file
+        .save('output_audio.mp3'); // Save the extracted audio to a file
     } catch (error) {
+      console.error('Error in processVideo:', error);
       reject(error);
     }
   });
