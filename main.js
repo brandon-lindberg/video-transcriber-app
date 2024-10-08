@@ -87,19 +87,3 @@ ipcMain.handle(
     }
   }
 );
-
-ipcMain.handle('openai:fetchModels', async (event, apiKey) => {
-  try {
-    const response = await axios.get('https://api.openai.com/v1/models', {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-
-    // Return the list of models
-    return response.data.data; // `data` contains an array of models
-  } catch (error) {
-    console.error('Error fetching models:', error.response ? error.response.data : error.message);
-    throw error; // Rethrow the error to be caught in the renderer process
-  }
-});

@@ -58,10 +58,10 @@ async function translateSubtitles(
 
     const srtContent = fs.readFileSync(inputFile, 'utf8').trim();
 
-    // Prepare the base prompt
+    // Prepare the enhanced base prompt
     const basePrompt = `Translate the following subtitles from English to ${getLanguageName(
       targetLanguage
-    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps.`;
+    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response.`;
 
     const basePromptTokens = encoding.encode(basePrompt).length;
 

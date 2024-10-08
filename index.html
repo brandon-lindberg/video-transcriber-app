@@ -40,7 +40,7 @@
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <!-- Eye icon SVG path -->
+            <!-- Initial Eye Icon (visible state) -->
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -66,9 +66,10 @@
     <!-- Model Selection -->
     <div class="mb-4">
       <label class="block font-medium mb-2">Select Model:</label>
-      <select id="modelSelect" class="w-full p-2 border rounded">
-        <!-- Models will be populated dynamically -->
+      <select id="modelSelect" class="w-full p-2 border rounded" disabled>
+        <option value="gpt-4o" selected>gpt-4o</option>
       </select>
+      <p class="text-sm text-gray-600 mt-1">Only GPT-4o is available for selection.</p>
     </div>
 
     <!-- Language Selection -->
