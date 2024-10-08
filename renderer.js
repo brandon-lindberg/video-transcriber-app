@@ -72,8 +72,6 @@ toggleApiKeyVisibility.addEventListener('click', () => {
         -1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`; // Eye icon
 });
 
-// Removed the API key input blur event listener and updateModelDropdown function as model fetching is no longer needed
-
 // Handle start processing
 startBtn.addEventListener('click', async () => {
   if (!selectedVideoPath) {
@@ -158,9 +156,20 @@ startBtn.addEventListener('click', async () => {
     // Display total tokens used
     const { tokensUsed, inputTokens, outputTokens, apiCalls } = processingResult;
 
-    alert(
-      `Processing completed in ${timerDisplay.textContent}.\nTotal API calls: ${apiCalls}\nTotal input tokens: ${inputTokens}\nTotal output tokens: ${outputTokens}\nTotal tokens used: ${tokensUsed}`
-    );
+    // Validate that all properties are defined
+    if (
+      tokensUsed !== undefined &&
+      inputTokens !== undefined &&
+      outputTokens !== undefined &&
+      apiCalls !== undefined
+    ) {
+      alert(
+        `Processing completed in ${timerDisplay.textContent}.\nTotal API calls: ${apiCalls}\nTotal input tokens: ${inputTokens}\nTotal output tokens: ${outputTokens}\nTotal tokens used: ${tokensUsed}`
+      );
+    } else {
+      alert('Processing completed, but some token counts are undefined. Please check the console for details.');
+      console.error('Incomplete processingResult:', processingResult);
+    }
   } catch (error) {
     alert('An error occurred during processing. Please check the console for details.');
     console.error(error);
@@ -196,3 +205,5 @@ function updateProgress(milestoneMessage) {
 window.electronAPI.onProgressUpdate((event, message) => {
   updateProgress(message);
 });
+
+

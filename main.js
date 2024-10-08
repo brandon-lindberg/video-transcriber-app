@@ -80,6 +80,7 @@ ipcMain.handle(
           win.webContents.send('progress-update', message);
         }
       );
+      console.log('Processing Result:', processingResult);
       return processingResult;
     } catch (error) {
       console.error('Error during processing:', error);
@@ -87,3 +88,4 @@ ipcMain.handle(
     }
   }
 );
+

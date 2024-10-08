@@ -44,7 +44,13 @@ async function transcribeAudio(filePath, apiKey) {
     };
   } catch (error) {
     console.error('Error during transcription:', error.response ? error.response.data : error.message);
-    return null;
+    return {
+      transcriptionData: null,
+      tokensUsed: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      apiCalls: 0,
+    };
   }
 }
 

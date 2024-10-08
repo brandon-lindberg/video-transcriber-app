@@ -46,35 +46,26 @@ async function processVideo(
 
           try {
             // Transcribe the extracted audio
-            const {
-              transcriptionData,
-              tokensUsed: transcriptionTokens,
-              inputTokens: transcriptionInputTokens,
-              outputTokens: transcriptionOutputTokens,
-              apiCalls: transcriptionAPICalls,
-            } = await transcribeAudio('output_audio.mp3', apiKey);
+            const transcriptionResult = await transcribeAudio('output_audio.mp3', apiKey);
 
-            if (transcriptionData) {
+            if (transcriptionResult && transcriptionResult.transcriptionData) {
               progressCallback('Transcription successful.');
 
               // Generate the original SRT file from the transcription data
-              generateSRT(transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
+              generateSRT(transcriptionResult.transcriptionData, path.join(saveDirectory, 'subtitles.srt'));
               progressCallback('SRT file generated.');
 
               // Initialize token and API call counters
-              let totalTokens = transcriptionTokens;
-              let totalInputTokens = transcriptionInputTokens;
-              let totalOutputTokens = transcriptionOutputTokens;
-              let totalAPICalls = transcriptionAPICalls;
+              let totalTokens = transcriptionResult.tokensUsed;
+              let totalInputTokens = transcriptionResult.inputTokens;
+              let totalOutputTokens = transcriptionResult.outputTokens;
+              let totalAPICalls = transcriptionResult.apiCalls;
 
               // Translate the subtitles into the selected target languages
               for (const lang of targetLanguages) {
-                const {
-                  tokensUsed: translationTokens,
-                  inputTokens: translationInputTokens,
-                  outputTokens: translationOutputTokens,
-                  apiCalls: translationAPICalls,
-                } = await translateSubtitles(
+                progressCallback(`Translating subtitles to ${lang.toUpperCase()}...`);
+
+                const translationResult = await translateSubtitles(
                   path.join(saveDirectory, 'subtitles.srt'),
                   lang,
                   apiKey,
@@ -82,28 +73,30 @@ async function processVideo(
                   saveDirectory
                 );
 
-                // Accumulate tokens and API calls
-                totalTokens += translationTokens;
-                totalInputTokens += translationInputTokens;
-                totalOutputTokens += translationOutputTokens;
-                totalAPICalls += translationAPICalls;
+                if (translationResult) {
+                  // Accumulate tokens and API calls
+                  totalTokens += translationResult.tokensUsed;
+                  totalInputTokens += translationResult.inputTokens;
+                  totalOutputTokens += translationResult.outputTokens;
+                  totalAPICalls += translationResult.apiCalls;
 
-                progressCallback(`SRT file generated for ${lang}.`);
+                  progressCallback(`SRT file generated for ${lang.toUpperCase()}.`);
+                } else {
+                  progressCallback(`Failed to translate to ${lang.toUpperCase()}.`);
+                  console.warn(`Translation result for ${lang} is undefined.`);
+                }
               }
 
               // Clean up temporary audio file
               fs.unlinkSync('output_audio.mp3');
-              // Do not delete the original SRT file as per user request
-              // fs.unlinkSync(path.join(saveDirectory, 'subtitles.srt'));
-
-              console.log('Temporary files deleted.');
+              console.log('Temporary audio file deleted.');
 
               // Resolve with the accumulated token and API call data
               resolve({
-                totalTokens,
-                totalInputTokens,
-                totalOutputTokens,
-                totalAPICalls,
+                tokensUsed: totalTokens,
+                inputTokens: totalInputTokens,
+                outputTokens: totalOutputTokens,
+                apiCalls: totalAPICalls,
               });
             } else {
               reject('Transcription failed.');
@@ -160,3 +153,4 @@ function secondsToSRTTime(totalSeconds) {
 }
 
 module.exports = { processVideo };
+

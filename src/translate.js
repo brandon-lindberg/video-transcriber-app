@@ -182,13 +182,15 @@ async function translateSubtitles(
         inputTokens += usage.prompt_tokens;
         outputTokens += usage.completion_tokens;
         apiCalls += 1;
+      } else {
+        console.warn(`Usage data missing for chunk ${index + 1}.`);
       }
 
       // Progress update
       console.log(
         `Translated chunk ${index + 1}/${chunks.length} for ${getLanguageName(
           targetLanguage
-        )}. Tokens used: ${usage.total_tokens}`
+        )}. Tokens used: ${usage ? usage.total_tokens : 'N/A'}`
       );
     }
 
@@ -222,3 +224,4 @@ async function translateSubtitles(
 }
 
 module.exports = { translateSubtitles };
+
