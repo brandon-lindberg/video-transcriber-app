@@ -10,5 +10,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   startProcessing: (videoPath, languages, apiKey, model, saveDirectory) =>
     ipcRenderer.invoke('process:video', videoPath, languages, apiKey, model, saveDirectory),
-  onProgressUpdate: (callback) => ipcRenderer.on('progress-update', (event, message) => callback(message)),
+  onProgressUpdate: (callback) => ipcRenderer.on('progress-update', (event, data) => callback(data)),
 });

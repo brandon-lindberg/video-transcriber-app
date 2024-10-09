@@ -2,7 +2,7 @@
 
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const { processVideo } = require('./src/index');
+const { processVideo } = require('./src/index'); // Ensure this path is correct
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -82,9 +82,9 @@ ipcMain.handle(
         apiKey,
         model,
         saveDirectory,
-        (message) => {
-          // Send progress updates to renderer
-          BrowserWindow.getFocusedWindow().webContents.send('progress-update', message);
+        (percentage, message) => {
+          // Send progress updates as an object with percentage and message
+          event.sender.send('progress-update', { percentage, message });
         }
       );
       console.log('Processing Result:', processingResult);
@@ -95,4 +95,3 @@ ipcMain.handle(
     }
   }
 );
-

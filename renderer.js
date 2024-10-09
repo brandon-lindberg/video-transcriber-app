@@ -17,9 +17,6 @@ let apiKeyVisible = false;
 let timerInterval = null;
 let startTime = null;
 
-const totalMilestones = 5; // Increased to accommodate detected language display
-let milestonesCompleted = 0;
-
 // List of available languages
 const languages = [
   { code: 'en', name: 'English' },
@@ -115,7 +112,6 @@ startBtn.addEventListener('click', async () => {
   progressBarFill.style.width = '0%';
   statusMessage.textContent = '';
   detectedLanguageDiv.textContent = 'Not yet detected';
-  milestonesCompleted = 0;
   startTime = Date.now();
 
   // Start timer interval
@@ -206,15 +202,14 @@ function formatTime(milliseconds) {
 }
 
 /**
- * Updates the progress bar and status message.
+ * Updates the progress bar and status message based on percentage and message.
  *
- * @param {string} milestoneMessage - Message describing the current milestone.
+ * @param {object} data - Object containing percentage and message.
  */
-function updateProgress(milestoneMessage) {
-  milestonesCompleted += 1;
-  const progressPercentage = (milestonesCompleted / totalMilestones) * 100;
-  progressBarFill.style.width = `${progressPercentage}%`;
-  statusMessage.textContent = milestoneMessage;
+function updateProgress(data) {
+  const { percentage, message } = data;
+  progressBarFill.style.width = `${percentage}%`;
+  statusMessage.textContent = message;
 }
 
 /**
@@ -235,8 +230,6 @@ function getLanguageName(code) {
 }
 
 // Listen for progress updates from the main process
-window.electronAPI.onProgressUpdate((message) => {
-  updateProgress(message);
+window.electronAPI.onProgressUpdate((data) => {
+  updateProgress(data);
 });
-
-
