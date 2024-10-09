@@ -14,7 +14,7 @@ const ffmpeg = require('fluent-ffmpeg');
  * @param {string} apiKey - OpenAI API key.
  * @param {string} model - OpenAI model name for translation (e.g., 'gpt-4o').
  * @param {string} saveDirectory - Directory to save SRT files.
- * @param {function} progressCallback - Callback to update progress.
+ * @param {function} progressCallback - Callback to update progress with percentage and message.
  * @returns {object} - Aggregated token usage and API call counts.
  */
 async function processVideo(
@@ -25,59 +25,62 @@ async function processVideo(
   saveDirectory,
   progressCallback
 ) {
-  return new Promise((resolve, reject) => {
-    try {
-      // Verify video file exists
-      if (!fs.existsSync(videoPath)) {
-        return reject('Video file not found at the specified path.');
-      }
+  try {
+    // Verify video file exists
+    if (!fs.existsSync(videoPath)) {
+      throw new Error('Video file not found at the specified path.');
+    }
 
-      // Step 1: Extract and Split Audio
-      progressCallback('Extracting and splitting audio...');
+    // Step 1: Extract and Split Audio
+    progressCallback(0, 'Extracting and splitting audio...');
+    await new Promise((resolve, reject) => {
       splitAudio(videoPath, (error) => {
         if (error) {
           return reject(error);
         }
-
-        // Step 2: Transcribe Audio Chunks
-        transcribeChunks(apiKey, model, saveDirectory, progressCallback)
-          .then((allSegments) => {
-            // Step 3: Merge Transcriptions into a Single SRT
-            progressCallback('Merging transcriptions...');
-            const detectedLanguage = mergeTranscriptions(allSegments, saveDirectory);
-            progressCallback('SRT file generated.');
-
-            // Step 4: Translate the Single SRT File
-            translateSRT(saveDirectory, detectedLanguage, targetLanguages, apiKey, model, progressCallback)
-              .then((translationStats) => {
-                // Step 5: Cleanup Temporary Files
-                cleanupTemporaryFiles(saveDirectory);
-                progressCallback('Cleanup completed.');
-
-                // Aggregate and return stats
-                resolve({
-                  tokensUsed: translationStats.tokensUsed,
-                  inputTokens: translationStats.inputTokens,
-                  outputTokens: translationStats.outputTokens,
-                  apiCalls: translationStats.apiCalls,
-                  detectedLanguage: detectedLanguage,
-                });
-              })
-              .catch((error) => {
-                console.error('Error during translation:', error);
-                reject(error);
-              });
-          })
-          .catch((error) => {
-            console.error('Error during transcription:', error);
-            reject(error);
-          });
+        progressCallback(10, 'Audio extraction and splitting completed.');
+        resolve();
       });
-    } catch (error) {
-      console.error('Error in processVideo:', error);
-      reject(error);
-    }
-  });
+    });
+
+    // Step 2: Transcribe Audio Chunks
+    const transcriptionSegments = await transcribeChunks(
+      apiKey,
+      model,
+      saveDirectory,
+      progressCallback
+    );
+
+    // Step 3: Merge Transcriptions into a Single SRT
+    progressCallback(50, 'Merging transcriptions...');
+    const detectedLanguage = mergeTranscriptions(transcriptionSegments, saveDirectory);
+    progressCallback(60, 'SRT file generated.');
+
+    // Step 4: Translate the Single SRT File
+    const translationStats = await translateSRT(
+      saveDirectory,
+      detectedLanguage,
+      targetLanguages,
+      apiKey,
+      model,
+      progressCallback
+    );
+
+    // Step 5: Cleanup Temporary Files
+    cleanupTemporaryFiles(saveDirectory);
+    progressCallback(100, 'Processing completed.');
+
+    return {
+      tokensUsed: translationStats.tokensUsed,
+      inputTokens: translationStats.inputTokens,
+      outputTokens: translationStats.outputTokens,
+      apiCalls: translationStats.apiCalls,
+      detectedLanguage: detectedLanguage,
+    };
+  } catch (error) {
+    console.error('Error in processVideo:', error);
+    throw error;
+  }
 }
 
 /**
@@ -121,30 +124,34 @@ function splitAudio(videoPath, callback) {
  * @param {string} apiKey - OpenAI API key.
  * @param {string} model - OpenAI model name for transcription.
  * @param {string} saveDirectory - Directory to save SRT files.
- * @param {function} progressCallback - Callback to update progress.
+ * @param {function} progressCallback - Callback to update progress with percentage and message.
  * @returns {Array<object>} - Array of all transcription segments with adjusted timestamps.
  */
 async function transcribeChunks(apiKey, model, saveDirectory, progressCallback) {
   const audioDir = path.join(__dirname, '..');
-  const audioFiles = fs.readdirSync(audioDir).filter(file => file.startsWith('output_audio_part') && file.endsWith('.mp3'));
+  const audioFiles = fs
+    .readdirSync(audioDir)
+    .filter((file) => file.startsWith('output_audio_part') && file.endsWith('.mp3'));
   console.log(`Found ${audioFiles.length} audio files to transcribe.`);
+
   const allSegments = [];
   let cumulativeDuration = 0; // Tracks total duration processed so far
 
-  for (let i = 0; i < audioFiles.length; i++) {
+  const totalAudioChunks = audioFiles.length;
+  for (let i = 0; i < totalAudioChunks; i++) {
     const file = audioFiles[i];
     const filePath = path.join(audioDir, file);
     console.log(`Starting transcription for: ${filePath}`);
-    progressCallback(`Transcribing chunk ${i + 1}/${audioFiles.length}...`);
+    progressCallback(10 + ((i + 1) / (totalAudioChunks + 4)) * 40, `Transcribing chunk ${i + 1}/${totalAudioChunks}...`);
 
     const transcriptionResult = await transcribeAudio(filePath, apiKey, 'whisper-1'); // Ensure 'whisper-1' is used
-    
+
     if (transcriptionResult && transcriptionResult.transcriptionData && transcriptionResult.transcriptionData.segments) {
       console.log(`Transcription successful for: ${file}`);
       const segments = transcriptionResult.transcriptionData.segments;
 
       // Adjust timestamps for each segment based on cumulativeDuration
-      const adjustedSegments = segments.map(segment => ({
+      const adjustedSegments = segments.map((segment) => ({
         ...segment,
         start: segment.start + cumulativeDuration,
         end: segment.end + cumulativeDuration,
@@ -231,7 +238,7 @@ function mergeTranscriptions(allSegments, saveDirectory) {
  * @param {Array<string>} targetLanguages - Array of target language codes.
  * @param {string} apiKey - OpenAI API key.
  * @param {string} model - OpenAI model name for translation (e.g., 'gpt-4o').
- * @param {function} progressCallback - Callback to update progress.
+ * @param {function} progressCallback - Callback to update progress with percentage and message.
  * @returns {object} - Aggregated token usage and API call counts.
  */
 async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, apiKey, model, progressCallback) {
@@ -241,10 +248,12 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
   let totalAPICalls = 0;
 
   const originalSrtPath = path.join(saveDirectory, 'subtitles_original.srt');
+  const totalTranslations = targetLanguages.length;
 
-  for (let i = 0; i < targetLanguages.length; i++) {
+  for (let i = 0; i < totalTranslations; i++) {
     const lang = targetLanguages[i];
-    progressCallback(`Translating subtitles to ${getLanguageName(lang)} (${lang})...`);
+    const currentPercentage = 60 + ((i + 1) / (totalTranslations)) * 30; // 60% to 90%
+    progressCallback(currentPercentage, `Translating subtitles to ${getLanguageName(lang)} (${lang})...`);
     console.log(`Translating to ${lang} (${getLanguageName(lang)})`);
 
     const translationResult = await translateSubtitles(
@@ -262,10 +271,12 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
       totalOutputTokens += translationResult.outputTokens;
       totalAPICalls += translationResult.apiCalls;
 
-      progressCallback(`Translated SRT file generated for ${getLanguageName(lang)}.`);
+      const finalPercentage = 60 + ((i + 1) / (totalTranslations)) * 30; // Ensure it doesn't exceed 90%
+      progressCallback(finalPercentage, `Translated SRT file generated for ${getLanguageName(lang)}.`);
       console.log(`Translated to ${lang}: ${getLanguageName(lang)}`);
     } else {
-      progressCallback(`Failed to translate to ${getLanguageName(lang)}.`);
+      const errorPercentage = 60 + ((i + 1) / (totalTranslations)) * 30;
+      progressCallback(errorPercentage, `Failed to translate to ${getLanguageName(lang)}.`);
       console.warn(`Translation result for ${lang} is undefined.`);
     }
   }
@@ -285,9 +296,11 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
  */
 function cleanupTemporaryFiles(saveDirectory) {
   const audioDir = path.join(__dirname, '..');
-  const audioFiles = fs.readdirSync(audioDir).filter(file => file.startsWith('output_audio_part') && file.endsWith('.mp3'));
+  const audioFiles = fs
+    .readdirSync(audioDir)
+    .filter((file) => file.startsWith('output_audio_part') && file.endsWith('.mp3'));
 
-  audioFiles.forEach(file => {
+  audioFiles.forEach((file) => {
     const filePath = path.join(audioDir, file);
     fs.unlinkSync(filePath);
     console.log(`Deleted temporary audio file: ${filePath}`);

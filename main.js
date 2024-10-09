@@ -82,9 +82,9 @@ ipcMain.handle(
         apiKey,
         model,
         saveDirectory,
-        (message) => {
-          // Send progress updates to the specific renderer process
-          event.sender.send('progress-update', message);
+        (percentage, message) => {
+          // Send progress updates as an object with percentage and message
+          event.sender.send('progress-update', { percentage, message });
         }
       );
       console.log('Processing Result:', processingResult);
