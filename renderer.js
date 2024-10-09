@@ -10,13 +10,14 @@ const eyeIcon = document.getElementById('eyeIcon');
 const timerDisplay = document.getElementById('timerDisplay');
 const progressBarFill = document.getElementById('progressBarFill');
 const statusMessage = document.getElementById('statusMessage');
+const detectedLanguageDiv = document.getElementById('detectedLanguage');
 
 let selectedVideoPath = null;
 let apiKeyVisible = false;
 let timerInterval = null;
 let startTime = null;
 
-const totalMilestones = 4; // Number of milestones
+const totalMilestones = 5; // Increased to accommodate detected language display
 let milestonesCompleted = 0;
 
 // List of available languages
@@ -113,6 +114,7 @@ startBtn.addEventListener('click', async () => {
   timerDisplay.textContent = '00:00:00';
   progressBarFill.style.width = '0%';
   statusMessage.textContent = '';
+  detectedLanguageDiv.textContent = 'Not yet detected';
   milestonesCompleted = 0;
   startTime = Date.now();
 
@@ -130,6 +132,11 @@ startBtn.addEventListener('click', async () => {
       model,
       saveDirectory
     );
+
+    // Update Detected Language
+    const detectedLanguageCode = processingResult.detectedLanguage;
+    const detectedLanguageName = getLanguageName(detectedLanguageCode);
+    detectedLanguageDiv.textContent = detectedLanguageName;
 
     // Clear the API key from the input field
     apiKeyInput.value = '';
@@ -164,7 +171,7 @@ startBtn.addEventListener('click', async () => {
       apiCalls !== undefined
     ) {
       alert(
-        `Processing completed in ${timerDisplay.textContent}.\nTotal API calls: ${apiCalls}\nTotal input tokens: ${inputTokens}\nTotal output tokens: ${outputTokens}\nTotal tokens used: ${tokensUsed}`
+        `Processing completed in ${timerDisplay.textContent}.\nDetected Language: ${detectedLanguageName}\nTotal API calls: ${apiCalls}\nTotal input tokens: ${inputTokens}\nTotal output tokens: ${outputTokens}\nTotal tokens used: ${tokensUsed}`
       );
     } else {
       alert('Processing completed, but some token counts are undefined. Please check the console for details.');
@@ -180,7 +187,12 @@ startBtn.addEventListener('click', async () => {
   }
 });
 
-// Function to format time in HH:MM:SS
+/**
+ * Formats milliseconds into HH:MM:SS.
+ *
+ * @param {number} milliseconds - Time in milliseconds.
+ * @returns {string} - Formatted time string.
+ */
 function formatTime(milliseconds) {
   const totalSeconds = Math.floor(milliseconds / 1000);
   const hours = Math.floor(totalSeconds / 3600)
@@ -193,7 +205,11 @@ function formatTime(milliseconds) {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-// Function to update progress bar and status message
+/**
+ * Updates the progress bar and status message.
+ *
+ * @param {string} milestoneMessage - Message describing the current milestone.
+ */
 function updateProgress(milestoneMessage) {
   milestonesCompleted += 1;
   const progressPercentage = (milestonesCompleted / totalMilestones) * 100;
@@ -201,8 +217,25 @@ function updateProgress(milestoneMessage) {
   statusMessage.textContent = milestoneMessage;
 }
 
+/**
+ * Maps language codes to their respective language names.
+ *
+ * @param {string} code - ISO 639-1 language code.
+ * @returns {string} - Full language name.
+ */
+function getLanguageName(code) {
+  const languages = {
+    en: 'English',
+    ja: 'Japanese',
+    es: 'Spanish',
+    fr: 'French',
+    // Add more languages as needed
+  };
+  return languages[code] || code;
+}
+
 // Listen for progress updates from the main process
-window.electronAPI.onProgressUpdate((event, message) => {
+window.electronAPI.onProgressUpdate((message) => {
   updateProgress(message);
 });
 

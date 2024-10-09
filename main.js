@@ -3,7 +3,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { processVideo } = require('./src/index');
-const axios = require('axios');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -17,6 +16,9 @@ function createWindow() {
   });
 
   win.loadFile('index.html');
+
+  // Optionally, open DevTools for debugging
+  // win.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);
@@ -25,6 +27,9 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// IPC Handlers
+
+// Open File Dialog
 ipcMain.handle('dialog:openFile', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -54,6 +59,7 @@ ipcMain.handle('dialog:openFile', async () => {
   }
 });
 
+// Select Directory Dialog
 ipcMain.handle('dialog:selectDirectory', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: ['openDirectory'],
@@ -65,11 +71,11 @@ ipcMain.handle('dialog:selectDirectory', async () => {
   }
 });
 
+// Process Video
 ipcMain.handle(
   'process:video',
   async (event, videoPath, languages, apiKey, model, saveDirectory) => {
     try {
-      const win = BrowserWindow.getFocusedWindow();
       const processingResult = await processVideo(
         videoPath,
         languages,
@@ -77,7 +83,8 @@ ipcMain.handle(
         model,
         saveDirectory,
         (message) => {
-          win.webContents.send('progress-update', message);
+          // Send progress updates to renderer
+          BrowserWindow.getFocusedWindow().webContents.send('progress-update', message);
         }
       );
       console.log('Processing Result:', processingResult);

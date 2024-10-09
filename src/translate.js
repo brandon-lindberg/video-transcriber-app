@@ -5,6 +5,12 @@ const path = require('path');
 const { Configuration, OpenAIApi } = require('openai');
 const { encoding_for_model } = require('@dqbd/tiktoken');
 
+/**
+ * Maps language codes to their respective language names.
+ *
+ * @param {string} code - ISO 639-1 language code.
+ * @returns {string} - Full language name.
+ */
 function getLanguageName(code) {
   const languages = {
     en: 'English',
@@ -16,10 +22,16 @@ function getLanguageName(code) {
   return languages[code] || code;
 }
 
-// Function to count tokens in chat messages
+/**
+ * Counts the number of tokens in chat messages based on the model.
+ *
+ * @param {Array} messages - Array of chat messages.
+ * @param {string} model - OpenAI model name.
+ * @returns {number} - Total token count.
+ */
 function countMessageTokens(messages, model) {
   const encoding = encoding_for_model(model);
-  let tokensPerMessage = 3; // Assuming gpt-4o follows the same pattern as gpt-4
+  let tokensPerMessage = 3; // Adjust based on model
   let tokensPerName = 1;
 
   let numTokens = 0;
@@ -34,68 +46,81 @@ function countMessageTokens(messages, model) {
       numTokens += tokensPerName;
     }
   }
-  numTokens += 3; // Every reply is primed with <|start|>assistant<|message|>
+  numTokens += 3; // Priming tokens
   encoding.free();
   return numTokens;
 }
 
+/**
+ * Translates subtitles from a source language to a target language.
+ *
+ * @param {string} inputFile - Path to the input SRT file.
+ * @param {string} sourceLanguage - ISO 639-1 code of the source language.
+ * @param {string} targetLanguage - ISO 639-1 code of the target language.
+ * @param {string} apiKey - OpenAI API key.
+ * @param {string} model - OpenAI model name.
+ * @param {string} saveDirectory - Directory to save the translated SRT file.
+ * @returns {object} - Translation token usage and API call count.
+ */
 async function translateSubtitles(
   inputFile,
+  sourceLanguage,
   targetLanguage,
   apiKey,
   model,
   saveDirectory
 ) {
   try {
-    // Initialize OpenAI client with the provided API key
+    // Initialize OpenAI client
     const configuration = new Configuration({
       apiKey: apiKey,
     });
     const openai = new OpenAIApi(configuration);
 
-    // Load the appropriate tokenizer
+    // Load tokenizer
     const encoding = encoding_for_model(model);
 
     const srtContent = fs.readFileSync(inputFile, 'utf8').trim();
 
-    // Prepare the enhanced base prompt
-    const basePrompt = `Translate the following subtitles from English to ${getLanguageName(
+    // Prepare translation prompt with dynamic source language
+    const basePrompt = `Translate the following subtitles from ${getLanguageName(
+      sourceLanguage
+    )} to ${getLanguageName(
       targetLanguage
     )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response.`;
 
     const basePromptTokens = encoding.encode(basePrompt).length;
 
-    // Determine the context window size for the model
+    // Determine model's context window size
     let maxModelTokens;
     if (model === 'gpt-4o') {
-      maxModelTokens = 4096; // Corrected context window for 'gpt-4o'
+      maxModelTokens = 4096; // Example value; adjust as needed
     } else if (model.startsWith('gpt-3.5')) {
       maxModelTokens = 4096;
     } else if (model.startsWith('gpt-4')) {
       maxModelTokens = 8192;
     } else {
-      maxModelTokens = 2048; // Default context window for other models
+      maxModelTokens = 2048; // Default
     }
 
-    const reservedTokens = 500; // Reserve tokens for safety
+    const reservedTokens = 500; // Safety buffer
     const tokensPerRequest = maxModelTokens - reservedTokens;
 
-    // Split SRT content into entries
+    // Split SRT into entries
     const srtEntries = srtContent.split('\n\n').filter(Boolean);
 
-    // Define maximum entries per chunk to ensure we don't exceed token limits
-    const maxEntriesPerChunk = 15; // Adjusted to create ~25 chunks from 353 entries
+    // Define max entries per chunk
+    const maxEntriesPerChunk = 15;
 
-    // Build chunks ensuring they fit within token limits and max entries
+    // Build chunks
     const chunks = [];
     let currentChunkEntries = [];
     let currentChunkTokens = basePromptTokens;
 
     for (const entry of srtEntries) {
       const entryTokens = encoding.encode(entry + '\n\n').length;
-      const estimatedTranslationTokens = Math.ceil(entryTokens * 2.0); // Expansion factor of 2.0
+      const estimatedTranslationTokens = Math.ceil(entryTokens * 2.0); // Estimated
 
-      // Check if adding this entry exceeds the maxEntriesPerChunk or token limits
       if (
         (currentChunkEntries.length + 1 > maxEntriesPerChunk) ||
         (currentChunkTokens + entryTokens + estimatedTranslationTokens > tokensPerRequest)
@@ -112,18 +137,16 @@ async function translateSubtitles(
       }
     }
 
-    // Push the last chunk
+    // Push last chunk
     if (currentChunkEntries.length > 0) {
       chunks.push(currentChunkEntries.join('\n\n'));
       console.log(`Created chunk ${chunks.length} with ${currentChunkEntries.length} entries.`);
     }
 
-    // Ensure we do not exceed maxApiCalls
+    // Ensure max API calls
     const maxApiCalls = 25;
     if (chunks.length > maxApiCalls) {
-      // Recalculate entriesPerChunk to fit within maxApiCalls
       const entriesPerChunk = Math.ceil(srtEntries.length / maxApiCalls);
-      // Rebuild chunks
       const newChunks = [];
       for (let i = 0; i < srtEntries.length; i += entriesPerChunk) {
         const chunkEntries = srtEntries.slice(i, i + entriesPerChunk);
@@ -153,7 +176,6 @@ async function translateSubtitles(
       const promptTokens = countMessageTokens(messages, model);
       const maxResponseTokens = maxModelTokens - promptTokens - reservedTokens;
 
-      // Ensure maxResponseTokens is positive
       if (maxResponseTokens <= 0) {
         console.error(
           `Error: Max response tokens is non-positive (${maxResponseTokens}). Reduce the chunk size.`
@@ -161,7 +183,7 @@ async function translateSubtitles(
         return;
       }
 
-      // Make the API call
+      // API call
       const response = await openai.createChatCompletion({
         model: model,
         messages: messages,
@@ -175,7 +197,7 @@ async function translateSubtitles(
       const translation = response.data.choices[0].message.content.trim();
       translatedSrtContent += translation + '\n\n';
 
-      // Accumulate tokens used
+      // Token usage
       const usage = response.data.usage;
       if (usage && usage.total_tokens) {
         totalTokens += usage.total_tokens;
@@ -186,7 +208,6 @@ async function translateSubtitles(
         console.warn(`Usage data missing for chunk ${index + 1}.`);
       }
 
-      // Progress update
       console.log(
         `Translated chunk ${index + 1}/${chunks.length} for ${getLanguageName(
           targetLanguage
@@ -194,7 +215,7 @@ async function translateSubtitles(
       );
     }
 
-    // Save the translated content
+    // Save translated SRT
     const outputFileName = `subtitles_${targetLanguage}.srt`;
     const outputFilePath = path.join(saveDirectory, outputFileName);
     fs.writeFileSync(outputFilePath, translatedSrtContent.trim());
