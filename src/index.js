@@ -142,7 +142,10 @@ async function transcribeChunks(apiKey, model, saveDirectory, progressCallback) 
     const file = audioFiles[i];
     const filePath = path.join(audioDir, file);
     console.log(`Starting transcription for: ${filePath}`);
-    progressCallback(10 + ((i + 1) / (totalAudioChunks + 4)) * 40, `Transcribing chunk ${i + 1}/${totalAudioChunks}...`);
+    progressCallback(
+      10 + ((i + 1) / (totalAudioChunks + 4)) * 40,
+      `Transcribing chunk ${i + 1}/${totalAudioChunks}...`
+    );
 
     const transcriptionResult = await transcribeAudio(filePath, apiKey, 'whisper-1'); // Ensure 'whisper-1' is used
 
@@ -252,8 +255,11 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
 
   for (let i = 0; i < totalTranslations; i++) {
     const lang = targetLanguages[i];
-    const currentPercentage = 60 + ((i + 1) / (totalTranslations)) * 30; // 60% to 90%
-    progressCallback(currentPercentage, `Translating subtitles to ${getLanguageName(lang)} (${lang})...`);
+    const currentPercentage = 60 + ((i + 1) / totalTranslations) * 30; // 60% to 90%
+    progressCallback(
+      currentPercentage,
+      `Translating subtitles to ${getLanguageName(lang)} (${lang})...`
+    );
     console.log(`Translating to ${lang} (${getLanguageName(lang)})`);
 
     const translationResult = await translateSubtitles(
@@ -271,12 +277,18 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
       totalOutputTokens += translationResult.outputTokens;
       totalAPICalls += translationResult.apiCalls;
 
-      const finalPercentage = 60 + ((i + 1) / (totalTranslations)) * 30; // Ensure it doesn't exceed 90%
-      progressCallback(finalPercentage, `Translated SRT file generated for ${getLanguageName(lang)}.`);
+      const finalPercentage = 60 + ((i + 1) / totalTranslations) * 30; // Ensure it doesn't exceed 90%
+      progressCallback(
+        finalPercentage,
+        `Translated SRT file generated for ${getLanguageName(lang)}.`
+      );
       console.log(`Translated to ${lang}: ${getLanguageName(lang)}`);
     } else {
-      const errorPercentage = 60 + ((i + 1) / (totalTranslations)) * 30;
-      progressCallback(errorPercentage, `Failed to translate to ${getLanguageName(lang)}.`);
+      const errorPercentage = 60 + ((i + 1) / totalTranslations) * 30;
+      progressCallback(
+        errorPercentage,
+        `Failed to translate to ${getLanguageName(lang)}.`
+      );
       console.warn(`Translation result for ${lang} is undefined.`);
     }
   }
@@ -290,12 +302,14 @@ async function translateSRT(saveDirectory, detectedLanguage, targetLanguages, ap
 }
 
 /**
- * Cleans up temporary audio chunk files to conserve storage.
+ * Cleans up temporary audio chunk files and output_audio.json files to conserve storage.
  *
  * @param {string} saveDirectory - Directory where SRT files are saved.
  */
 function cleanupTemporaryFiles(saveDirectory) {
   const audioDir = path.join(__dirname, '..');
+
+  // Delete MP3 files
   const audioFiles = fs
     .readdirSync(audioDir)
     .filter((file) => file.startsWith('output_audio_part') && file.endsWith('.mp3'));
@@ -304,6 +318,17 @@ function cleanupTemporaryFiles(saveDirectory) {
     const filePath = path.join(audioDir, file);
     fs.unlinkSync(filePath);
     console.log(`Deleted temporary audio file: ${filePath}`);
+  });
+
+  // Delete output_audio.json files
+  const jsonFiles = fs
+    .readdirSync(audioDir)
+    .filter((file) => file.startsWith('output_audio') && file.endsWith('.json'));
+
+  jsonFiles.forEach((file) => {
+    const filePath = path.join(audioDir, file);
+    fs.unlinkSync(filePath);
+    console.log(`Deleted temporary JSON file: ${filePath}`);
   });
 }
 
