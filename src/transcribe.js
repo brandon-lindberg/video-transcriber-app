@@ -9,18 +9,17 @@ const fs = require('fs');
  *
  * @param {string} filePath - Path to the audio file.
  * @param {string} apiKey - OpenAI API key.
+ * @param {string} [model='whisper-1'] - OpenAI model name for transcription.
  * @returns {object} - Transcription data including detected language and token usage.
  */
-async function transcribeAudio(filePath, apiKey) {
+async function transcribeAudio(filePath, apiKey, model = 'whisper-1') {
   try {
     const fileStream = fs.createReadStream(filePath);
 
     const formData = new FormData();
     formData.append('file', fileStream);
-    formData.append('model', 'whisper-1');
+    formData.append('model', model); // Parameterized with default
     formData.append('response_format', 'verbose_json'); // Get detailed transcription data
-
-    // Removed the 'language' parameter to allow auto-detection
 
     const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
       headers: {
@@ -32,10 +31,10 @@ async function transcribeAudio(filePath, apiKey) {
     });
 
     const transcriptionData = response.data;
-    console.log('Transcription successful!');
+    console.log(`Transcription successful for ${filePath}!`);
 
     // Save the transcription data to a JSON file for debugging (optional)
-    fs.writeFileSync('transcription.json', JSON.stringify(transcriptionData, null, 2));
+    fs.writeFileSync(`${filePath}.json`, JSON.stringify(transcriptionData, null, 2));
 
     // Extract token usage information
     const usage = transcriptionData.usage || {};

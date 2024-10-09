@@ -17,9 +17,6 @@ let apiKeyVisible = false;
 let timerInterval = null;
 let startTime = null;
 
-const totalMilestones = 5; // Increased to accommodate detected language display
-let milestonesCompleted = 0;
-
 // List of available languages
 const languages = [
   { code: 'en', name: 'English' },
@@ -115,7 +112,8 @@ startBtn.addEventListener('click', async () => {
   progressBarFill.style.width = '0%';
   statusMessage.textContent = '';
   detectedLanguageDiv.textContent = 'Not yet detected';
-  milestonesCompleted = 0;
+  let milestonesCompleted = 0;
+  const totalMilestones = 5; // Increased to accommodate detected language display
   startTime = Date.now();
 
   // Start timer interval
@@ -238,5 +236,3 @@ function getLanguageName(code) {
 window.electronAPI.onProgressUpdate((message) => {
   updateProgress(message);
 });
-
-

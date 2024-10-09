@@ -245,4 +245,3 @@ async function translateSubtitles(
 }
 
 module.exports = { translateSubtitles };
-
