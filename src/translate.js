@@ -23,6 +23,83 @@ function getLanguageName(code) {
 }
 
 /**
+ * Retrieves the translation rules based on the target language.
+ *
+ * @param {string} targetLanguage - ISO 639-1 code of the target language.
+ * @returns {string} - Translation rules as a string.
+ */
+function getTranslationRules(targetLanguage) {
+  const rules = {
+    en: `
+English Translation Rules:
+
+1. **Accuracy of Translation**
+   Ensure the meaning of the original dialogue is accurately conveyed.
+   Avoid word-for-word translations if they hinder comprehension; prioritize the message.
+2. **Readability**
+   Limit the number of characters per line (usually 37–42 characters) to ensure subtitles are easily readable.
+   Use two lines per subtitle screen at most.
+3. **Subtitle Display Time**
+   Ensure the subtitle stays on screen long enough to be read. A general rule is 1 second for every 12 characters.
+   Minimum display time: 1 second, maximum display time: 7 seconds.
+4. **Timing and Synchronization**
+   Subtitles should be in sync with the audio, appearing and disappearing when the dialogue is spoken.
+   Avoid having subtitles that linger after the character has stopped speaking.
+5. **Line Breaks**
+   Break lines at natural pauses or punctuation marks (e.g., after commas or conjunctions).
+   Keep related words (like subject and verb) on the same line to maintain flow and comprehension.
+6. **Punctuation**
+   Use standard punctuation (periods, commas, question marks) to reflect the tone and meaning of the dialogue.
+   Use ellipses (…) for pauses or trailing off.
+7. **Conciseness**
+   Subtitles should be concise, capturing the essence of the dialogue without unnecessary words.
+   Eliminate filler words like "um" and "uh," unless crucial for character portrayal.
+8. **Grammar and Spelling**
+   Ensure subtitles use correct grammar, spelling, and capitalization.
+   Use lowercase for common words, but capitalize proper nouns and titles.
+9. **Slang and Cultural References**
+   If slang or cultural references are used, make sure they are understandable by a broad audience, possibly using adapted or explanatory translations.
+10. **Speaker Identification**
+    When multiple people are speaking, ensure it's clear who is saying what by using hyphens (-) for different speakers on the same subtitle screen.
+    Do not put the name of the person speaking in the subtitle.
+11. **Language Consistency**
+    Maintain consistent terminology and phrasing throughout a series or film to ensure clarity for viewers, especially when dealing with technical terms or character names.
+    `,
+    ja: `
+日本語翻訳ルール:
+
+1. **自然で簡潔な翻訳**
+   原文に忠実でありながら、自然な日本語に意訳する。直訳ではなく、話者の意図を理解しやすい形で伝える。
+2. **文字数制限**
+   1行あたりの文字数は13～15文字を目安にする。1回の字幕表示で最大2行までに制限する。
+   長い文章は適切な箇所で分割し、簡潔にまとめる。
+3. **適切なタイミングと表示時間**
+   1秒あたり約4～5文字を目安とし、視聴者が無理なく字幕を読めるように表示時間を調整する。
+   最低でも1.5秒、最大でも7秒の表示時間を確保する。
+4. **改行のルール**
+   改行は意味の切れ目や自然な場所で行い、関連する言葉やフレーズを分断しないようにする。主語と述語や助詞と動詞はできるだけ一緒に表示する。
+5. **句読点の使用**
+   句読点は使わず「、」が適切な場合は半角スペースを入れ、「。」が適切な場合は全角スペースを使用する。疑問文には「？」、感嘆文には「！」を使い、話者のトーンを反映する。
+6. **敬語・口語の使用**
+   話者のトーンや口調を反映し、適切な敬語や口語を使用する。話者のキャラクターやスタイルに応じた翻訳を行う。
+7. **固有名詞や専門用語**
+   固有名詞や専門用語、ブランド名は可能な限り原文を保持しつつ、必要であれば説明や注釈を加える。
+8. **音声要素の翻訳**
+   効果音や音楽、重要な音声イベントは字幕で表示する（例：「[笑い]」「[拍手]」）。これにより聴覚障害者にも分かりやすくする。
+9. **スラングや文化特有の表現**
+   スラングや文化特有の表現は、視聴者に分かりやすく意訳する。意味が伝わりにくい場合、適切な表現に置き換える。
+10. **一貫したスタイルの維持**
+    字幕のフォーマットやスタイルは、一貫性を保つ。全体で同じ翻訳ルールを適用する。
+11. **複数人が同時に話している場合**
+    同一画面内で複数の話者が話す場合、各話者のセリフの前にハイフンを使用して区別する。
+    話者の名前は字幕として表示しない。
+    `,
+  };
+  
+  return rules[targetLanguage] || '';
+}
+
+/**
  * Counts the number of tokens in chat messages based on the model.
  *
  * @param {Array} messages - Array of chat messages.
@@ -82,12 +159,15 @@ async function translateSubtitles(
 
     const srtContent = fs.readFileSync(inputFile, 'utf8').trim();
 
-    // Prepare translation prompt with dynamic source language
+    // Retrieve translation rules based on target language
+    const translationRules = getTranslationRules(targetLanguage);
+
+    // Prepare translation prompt with dynamic source language and rules
     const basePrompt = `Translate the following subtitles from ${getLanguageName(
       sourceLanguage
     )} to ${getLanguageName(
       targetLanguage
-    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response.`;
+    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response. Apply the following translation rules:\n\n${translationRules}\n\n**Additional Instruction:** In the Japanese translations, do not use standard punctuation marks like commas (,) and periods (.). Instead, use a half-width space where "、" (comma) is appropriate and a full-width space where "。" (period) is appropriate. Use "？" for questions and "！" for exclamations to reflect the speaker's tone.\n\n**Examples:**\n\nOriginal:\n1\n00:00:01,000 --> 00:00:04,000\nHello, world!\n\nTranslated:\n1\n00:00:01,000 --> 00:00:04,000\nこんにちは 世界！\n\nOriginal:\n2\n00:00:05,000 --> 00:00:07,000\nHow are you today?\n\nTranslated:\n2\n00:00:05,000 --> 00:00:07,000\n今日はどうですか？\n\nOriginal:\n3\n00:00:08,000 --> 00:00:10,000\nThat's amazing.\n\nTranslated:\n3\n00:00:08,000 --> 00:00:10,000\nそれは素晴らしい！\n\nNow, translate the following subtitles:`;
 
     const basePromptTokens = encoding.encode(basePrompt).length;
 
