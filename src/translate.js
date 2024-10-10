@@ -167,7 +167,7 @@ async function translateSubtitles(
       sourceLanguage
     )} to ${getLanguageName(
       targetLanguage
-    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response. Apply the following translation rules:\n\n${translationRules}\n\nExample:\n\n1\n00:00:01,000 --> 00:00:04,000\nHello, world!\n\nTranslated Example:\n\n1\n00:00:01,000 --> 00:00:04,000\nこんにちは、世界！\n\nNow, translate the following subtitles:`;
+    )}. Preserve the SRT format exactly, including numbering and timestamps. Only translate the subtitle text. Do not alter any numbers or timestamps. Do not include any markdown or code block syntax in your response. Apply the following translation rules:\n\n${translationRules}\n\n**Additional Instruction:** In the Japanese translations, do not use standard punctuation marks like commas (,) and periods (.). Instead, use a half-width space where "、" (comma) is appropriate and a full-width space where "。" (period) is appropriate. Use "？" for questions and "！" for exclamations to reflect the speaker's tone.\n\n**Examples:**\n\nOriginal:\n1\n00:00:01,000 --> 00:00:04,000\nHello, world!\n\nTranslated:\n1\n00:00:01,000 --> 00:00:04,000\nこんにちは 世界！\n\nOriginal:\n2\n00:00:05,000 --> 00:00:07,000\nHow are you today?\n\nTranslated:\n2\n00:00:05,000 --> 00:00:07,000\n今日はどうですか？\n\nOriginal:\n3\n00:00:08,000 --> 00:00:10,000\nThat's amazing.\n\nTranslated:\n3\n00:00:08,000 --> 00:00:10,000\nそれは素晴らしい！\n\nNow, translate the following subtitles:`;
 
     const basePromptTokens = encoding.encode(basePrompt).length;
 
@@ -295,11 +295,16 @@ async function translateSubtitles(
       );
     }
 
-    // Save translated SRT
-    const outputFileName = `subtitles_${targetLanguage}.srt`;
-    const outputFilePath = path.join(saveDirectory, outputFileName);
-    fs.writeFileSync(outputFilePath, translatedSrtContent.trim());
-    console.log(`Translated SRT file generated: ${outputFilePath}`);
+    // Validate the translated SRT content
+    if (validateTranslatedSRT(translatedSrtContent)) {
+      // Save translated SRT
+      const outputFileName = `subtitles_${targetLanguage}.srt`;
+      const outputFilePath = path.join(saveDirectory, outputFileName);
+      fs.writeFileSync(outputFilePath, translatedSrtContent.trim());
+      console.log(`Translated SRT file generated: ${outputFilePath}`);
+    } else {
+      console.error('Translated SRT contains invalid entries. Please review the translation.');
+    }
 
     // Clean up tokenizer
     encoding.free();
@@ -324,4 +329,27 @@ async function translateSubtitles(
   }
 }
 
+/**
+ * Validates the translated SRT content to ensure proper formatting.
+ *
+ * @param {string} translatedContent - The translated SRT content.
+ * @returns {boolean} - Returns true if all entries are valid, else false.
+ */
+function validateTranslatedSRT(translatedContent) {
+  const srtEntries = translatedContent.trim().split('\n\n').filter(Boolean);
+  const regex = /^\d+\n\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}\n.+$/;
+
+  let isValid = true;
+  srtEntries.forEach((entry, index) => {
+    if (!regex.test(entry)) {
+      console.warn(`Invalid SRT entry detected at index ${index + 1}:`, entry);
+      isValid = false;
+      // Optionally, you can throw an error or implement corrective measures here
+    }
+  });
+
+  return isValid;
+}
+
 module.exports = { translateSubtitles };
+
