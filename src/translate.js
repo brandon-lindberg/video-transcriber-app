@@ -295,16 +295,11 @@ async function translateSubtitles(
       );
     }
 
-    // Validate the translated SRT content
-    if (validateTranslatedSRT(translatedSrtContent)) {
-      // Save translated SRT
-      const outputFileName = `subtitles_${targetLanguage}.srt`;
-      const outputFilePath = path.join(saveDirectory, outputFileName);
-      fs.writeFileSync(outputFilePath, translatedSrtContent.trim());
-      console.log(`Translated SRT file generated: ${outputFilePath}`);
-    } else {
-      console.error('Translated SRT contains invalid entries. Please review the translation.');
-    }
+    // Save translated SRT
+    const outputFileName = `subtitles_${targetLanguage}.srt`;
+    const outputFilePath = path.join(saveDirectory, outputFileName);
+    fs.writeFileSync(outputFilePath, translatedSrtContent.trim());
+    console.log(`Translated SRT file generated: ${outputFilePath}`);
 
     // Clean up tokenizer
     encoding.free();
@@ -329,27 +324,4 @@ async function translateSubtitles(
   }
 }
 
-/**
- * Validates the translated SRT content to ensure proper formatting.
- *
- * @param {string} translatedContent - The translated SRT content.
- * @returns {boolean} - Returns true if all entries are valid, else false.
- */
-function validateTranslatedSRT(translatedContent) {
-  const srtEntries = translatedContent.trim().split('\n\n').filter(Boolean);
-  const regex = /^\d+\n\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}\n.+$/;
-
-  let isValid = true;
-  srtEntries.forEach((entry, index) => {
-    if (!regex.test(entry)) {
-      console.warn(`Invalid SRT entry detected at index ${index + 1}:`, entry);
-      isValid = false;
-      // Optionally, you can throw an error or implement corrective measures here
-    }
-  });
-
-  return isValid;
-}
-
 module.exports = { translateSubtitles };
-
